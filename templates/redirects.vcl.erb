@@ -1,0 +1,29 @@
+vcl 4.0;
+# generated varnish config: <%= $environment %>
+# local test: <%= $local_test_mode ? 'ENABLED' : 'DISABLED' %>
+
+sub vcl_recv {
+	std.log("Checking redirects for: " + req.http.host);
+
+	<% redirects['redirect_domains'].each_pair do |target, srcs| %>
+	<% srcs.each do |src| %>
+
+	if (req.http.host ~ "<%= src %>") {
+		set req.http.Location = "http://<%= target %>";
+		return (synth(750, "Permanently moved"));
+	}
+	<% end %>
+	<% end %>
+
+	<% redirects['redirect_to'].each_pair do |domain, url_redirects| %>
+	if (req.http.host ~ "<%= domain %>") {
+	<% url_redirects.each_pair do |target_url, src_url| %>
+
+		if (req.url ~ "<%= src_url %>") {
+			set req.http.Location = "http://<%= domain + target_url %>";
+			return (synth(750, "Permanently moved"));
+		}
+	<% end %>
+	}
+	<% end %>
+}

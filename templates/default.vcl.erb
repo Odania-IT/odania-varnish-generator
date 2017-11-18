@@ -1,0 +1,21 @@
+vcl 4.0;
+# generated varnish config: <%= $environment %>
+# local test: <%= $local_test_mode ? 'ENABLED' : 'DISABLED' %>
+
+import std;
+import directors;
+
+sub vcl_synth {
+	if (resp.status == 750) {
+		set resp.http.location = req.http.Location;
+		set resp.status = 301;
+		return (deliver);
+	}
+}
+
+include "/etc/varnish/backend.vcl";
+include "/etc/varnish/general.vcl";
+include "/etc/varnish/services.vcl";
+include "/etc/varnish/redirects.vcl";
+include "/etc/varnish/final.vcl";
+include "/etc/varnish/websocket.vcl";

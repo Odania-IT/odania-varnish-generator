@@ -1,0 +1,42 @@
+vcl 4.0;
+# generated varnish config: <%= $environment %>
+# local test: <%= $local_test_mode ? 'ENABLED' : 'DISABLED' %>
+
+probe www_probe {
+	.url = "/_health";
+	.timeout = 1s;
+	.interval = <%= $local_test_mode ? '60s' : '4s' %>;
+	.window = 5;
+	.threshold = 3;
+}
+
+backend default {
+	.host = "<%= default_backend[:ip] %>";
+	.port = "<%= default_backend[:port] %>";
+	.probe = www_probe;
+	.connect_timeout = 0.5s;
+	.first_byte_timeout = 20s;
+	.between_bytes_timeout = 5s;
+	.max_connections = 50;
+}
+
+<% backends.each_pair do |_color, hosts| %>
+	<% hosts.each do |host| %>
+		# <%= host[:name] %>
+		backend <%= sanitize_name(host[:name] + '_' + host[:uuid]) %> {
+			.host = "<%= host[:ip] %>";
+			.port = "<%= host[:port] %>";
+			.probe = www_probe;
+		}
+	<% end %>
+<% end %>
+
+sub vcl_init {
+<% backends.each_pair do |color, hosts| %>
+	new <%= director_name(color) %>_director = directors.round_robin();
+	<% hosts.each do |host| %>
+		# <%= host[:name] %>
+		<%= director_name(color) %>_director.add_backend(<%= sanitize_name(host[:name] + '_' + host[:uuid]) %>);
+	<% end %>
+<% end %>
+}

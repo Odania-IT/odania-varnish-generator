@@ -1,0 +1,6 @@
+---
+environments:
+  develop:
+    redis_url: redis://redis:6379
+    discovery_helper: DockerCompose
+    extra_backends: []

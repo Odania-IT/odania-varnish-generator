@@ -1,0 +1,9 @@
+vcl 4.0;
+# generated varnish config: <%= $environment %>
+# local test: <%= $local_test_mode ? 'ENABLED' : 'DISABLED' %>
+
+### If nothing special is done by any plugin we receive the page from the core plugin
+### Will render 404 if nothing is available
+sub vcl_recv {
+	return (hash);
+}

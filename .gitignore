@@ -1,0 +1,5 @@
+.idea
+redirects.yml
+varnish-secret
+config.yml
+services.vcl

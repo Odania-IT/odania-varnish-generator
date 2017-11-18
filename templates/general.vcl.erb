@@ -1,0 +1,128 @@
+<%
+	 default_cache_time = $environment.eql?('production') ? '600s' : '1s'
+%>
+vcl 4.0;
+# generated varnish config: <%= $environment %>
+# local test: <%= $local_test_mode ? 'ENABLED' : 'DISABLED' %>
+
+### Called when a client request is received
+sub vcl_recv {
+	# Remove the proxy header (see https://httpoxy.org/#mitigate-varnish)
+	unset req.http.proxy;
+
+	## Select backend depending on subdomain
+	set req.backend_hint = live_director.backend();
+	if (req.http.host ~ "^staging.") {
+		if (! req.http.Authorization ~ "Basic b2RhbmlhOmFsbGlnYXRvcjM=")
+		{
+			return (synth(401, "Restricted"));
+		}
+
+		unset req.http.Authorization;
+		set req.backend_hint = staging_director.backend();
+	}
+
+	### always cache these items:
+
+	# varnish is alive. Get health state from core plugin.
+	if (req.url ~ "^/_health$") {
+		return (hash);
+	}
+
+	#if (req.method == "GET" && req.url ~ "\.(js)") {
+	#	return (hash);
+	#}
+
+	## images
+	#if (req.method == "GET" && req.url ~ "\.(gif|jpg|jpeg|bmp|png|tiff|tif|ico|img|tga|wmf)$") {
+	#	return (hash);
+	#}
+
+	## various other content pages
+	#if (req.method == "GET" && req.url ~ "\.(css)$") {
+	#	return (hash);
+	#}
+
+	## multimedia
+	#if (req.method == "GET" && req.url ~ "\.(svg|swf|ico|mp3|mp4|m4a|ogg|mov|avi|wmv)$") {
+	#	return (hash);
+	#}
+
+	## xml
+
+	#if (req.method == "GET" && req.url ~ "\.(xml)$") {
+	#	return (hash);
+	#}
+}
+
+### Called when the requested object has been retrieved from the backend, or the request to the backend has failed
+### TODO: hardly changed from varnish 3. Is it still working??? Check!!!
+sub vcl_backend_response {
+	if (bereq.method == "GET" && bereq.url ~ "\.(gif|jpg|jpeg|bmp|png|tiff|tif|ico|img|tga|wmf)$") {
+		unset beresp.http.set-cookie;
+		set beresp.ttl = <%= default_cache_time %>;
+	}
+
+	## various other content pages
+	if (bereq.method == "GET" && bereq.url ~ "\.(css)$") {
+		unset beresp.http.set-cookie;
+		set beresp.ttl = <%= default_cache_time %>;
+	}
+
+	if (bereq.method == "GET" && bereq.url ~ "\.(js)$") {
+		unset beresp.http.set-cookie;
+		set beresp.ttl = <%= default_cache_time %>;
+	}
+
+	## xml
+	if (bereq.method == "GET" && bereq.url ~ "\.(xml)$") {
+		unset beresp.http.set-cookie;
+		set beresp.ttl = <%= default_cache_time %>;
+	}
+
+	## multimedia
+	if (bereq.method == "GET" && bereq.url ~ "\.(svg|swf|ico|mp3|mp4|m4a|ogg|mov|avi|wmv)$") {
+		unset beresp.http.set-cookie;
+		set beresp.ttl = <%= default_cache_time %>;
+	}
+
+	# To prevent accidental replace, we only filter the 301/302 redirects for now.
+	if (beresp.status == 301 || beresp.status == 302) {
+		set beresp.http.Location = regsub(beresp.http.Location, ":[0-9]+", "<%= $environment.eql?('develop') ? ':3000' : '' %>");
+	}
+
+	# Allow items to be stale if needed.
+	set beresp.grace = 6h;
+
+	if (beresp.http.X-Do-Esi ~ "true") {
+		set beresp.do_esi = true;
+	}
+
+	<% if $local_test_mode %>
+	set beresp.ttl = 1s;
+	<% end %>
+}
+
+#
+#
+## Called before a cached object is delivered to the client
+#
+sub vcl_deliver {
+	set resp.http.X-Served-By = server.hostname;
+	if (obj.hits > 0) {
+		set resp.http.X-Cache = "HIT";
+		set resp.http.X-Cache-Hits = obj.hits;
+	} else {
+		set resp.http.X-Cache = "MISS";
+	}
+
+	return(deliver);
+}
+
+sub vcl_synth {
+	if (resp.status == 401) {
+		set resp.status = 401;
+		set resp.http.WWW-Authenticate = "Basic";
+		return(deliver);
+	}
+}

@@ -1,0 +1,18 @@
+---
+# This is an example redirects config
+
+# Redirect url on domain
+# domain:
+#   target => src
+redirect_to:
+  www.example.com:
+    "/de/categories/test-1": "/de/categories/82-test-1"
+    "/de/categories/test-42": "/de/categories/42-test"
+
+# Redirect domains
+# Target Domain:
+#   - Src Domain 1
+#   - Src Domain 2
+redirect_domains:
+  www.example.com:
+  - test.de
