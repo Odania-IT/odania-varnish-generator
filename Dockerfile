@@ -1,4 +1,4 @@
-FROM alpine:3.6
+FROM alpine:3.18
 MAINTAINER Mike Petersen <mike@odania-it.de>
 
 RUN apk update && apk add --no-cache ruby ruby-dev varnish vim g++ musl-dev make
